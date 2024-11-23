@@ -5,8 +5,10 @@ import com.mjc.school.aruka.exception.ResourceNotFoundException;
 import com.mjc.school.aruka.mapper.NewsMapper;
 import com.mjc.school.aruka.model.News;
 import com.mjc.school.aruka.model.AuthorNews;
+import com.mjc.school.aruka.model.Tag;
 import com.mjc.school.aruka.repository.NewsRepository;
 import com.mjc.school.aruka.repository.AuthorNewsRepository;
+import com.mjc.school.aruka.repository.TagRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,11 +24,13 @@ public class NewsService {
 
     private final NewsRepository newsRepository;
     private final AuthorNewsRepository authorNewsRepository;
+    private final TagRepository tagRepository;
     private final NewsMapper newsMapper;
 
-    public NewsService(NewsRepository newsRepository, AuthorNewsRepository authorNewsRepository, NewsMapper newsMapper) {
+    public NewsService(NewsRepository newsRepository, AuthorNewsRepository authorNewsRepository, TagRepository tagRepository, NewsMapper newsMapper) {
         this.newsRepository = newsRepository;
         this.authorNewsRepository = authorNewsRepository;
+        this.tagRepository = tagRepository;
         this.newsMapper = newsMapper;
     }
 
@@ -34,8 +38,18 @@ public class NewsService {
         AuthorNews author = authorNewsRepository.findById(newsDto.getAuthorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Author not found with ID: " + newsDto.getAuthorId()));
 
+        List<Tag> tags = newsDto.getTags().stream().map(tagName -> {
+            Tag tag = tagRepository.findByName(tagName).orElseGet(() -> {
+                Tag newTag = new Tag();
+                newTag.setName(tagName);
+                return tagRepository.save(newTag);
+            });
+            return tag;
+        }).collect(Collectors.toList());
+
         News news = newsMapper.toEntity(newsDto);
         news.setAuthor(author);
+        news.setTags(tags);
         news.setCreatedDate(LocalDateTime.now());
         news.setLastUpdatedDate(LocalDateTime.now());
 
@@ -59,9 +73,6 @@ public class NewsService {
         Pageable pageable = PageRequest.of(page, size, sort);
         return newsRepository.findAll(pageable).map(newsMapper::toDto);
     }
-
-
-
     public NewsDto updateNews(Long id, NewsDto newsDto) {
         News news = newsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("News not found with ID: " + id));
@@ -69,20 +80,28 @@ public class NewsService {
         AuthorNews author = authorNewsRepository.findById(newsDto.getAuthorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Author not found with ID: " + newsDto.getAuthorId()));
 
+        List<Tag> tags = newsDto.getTags().stream().map(tagName -> {
+            Tag tag = tagRepository.findByName(tagName).orElseGet(() -> {
+                Tag newTag = new Tag();
+                newTag.setName(tagName);
+                return tagRepository.save(newTag);
+            });
+            return tag;
+        }).collect(Collectors.toList());
+
         news.setTitle(newsDto.getTitle());
         news.setContent(newsDto.getContent());
         news.setLastUpdatedDate(LocalDateTime.now());
         news.setAuthor(author);
+        news.setTags(tags);
 
         return newsMapper.toDto(newsRepository.save(news));
     }
 
-    public Page<NewsDto> searchNews(String authorName, String title, String content, List<Long> tagIds, Pageable pageable) {
-        // Use the repository's searchNews method
-        Page<News> newsPage = newsRepository.searchNews(authorName, title, content, tagIds, pageable);
-        return newsPage.map(newsMapper::toDto);
+    public Page<NewsDto> searchNews(String authorName, String title, String content, List<String> tagNames, Pageable pageable) {
+        Page<News> filteredNews = newsRepository.searchNews(authorName, title, content, tagNames, pageable);
+        return filteredNews.map(newsMapper::toDto);
     }
-
     public boolean deleteNews(Long id) {
         if (!newsRepository.existsById(id)) {
             throw new ResourceNotFoundException("News not found with ID: " + id);

@@ -13,18 +13,17 @@ import java.util.List;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
 
-    @Query("SELECT DISTINCT n FROM News n " +
+    @Query("SELECT n FROM News n " +
+            "LEFT JOIN n.author a " +
             "LEFT JOIN n.tags t " +
-            "WHERE " +
-            "(:authorName IS NULL OR LOWER(n.author.firstName) LIKE LOWER(CONCAT('%', :authorName, '%')) OR LOWER(n.author.lastName) LIKE LOWER(CONCAT('%', :authorName, '%'))) AND " +
-            "(:title IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
-            "(:content IS NULL OR LOWER(n.content) LIKE LOWER(CONCAT('%', :content, '%'))) AND " +
-            "(:tagIds IS NULL OR t.id IN :tagIds)")
-    Page<News> searchNews(
-            @Param("authorName") String authorName,
-            @Param("title") String title,
-            @Param("content") String content,
-            @Param("tagIds") List<Long> tagIds,
-            Pageable pageable
-    );
+            "WHERE (:authorName IS NULL OR a.firstName LIKE %:authorName% OR a.lastName LIKE %:authorName%) " +
+            "AND (:title IS NULL OR n.title LIKE %:title%) " +
+            "AND (:content IS NULL OR n.content LIKE %:content%) " +
+            "AND (:tagNames IS NULL OR t.name IN :tagNames) " +
+            "GROUP BY n.id")
+    Page<News> searchNews(@Param("authorName") String authorName,
+                          @Param("title") String title,
+                          @Param("content") String content,
+                          @Param("tagNames") List<String> tagNames,
+                          Pageable pageable);
 }

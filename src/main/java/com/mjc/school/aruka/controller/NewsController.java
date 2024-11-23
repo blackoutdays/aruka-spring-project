@@ -88,10 +88,11 @@ public class NewsController {
             @RequestParam(required = false) String authorName,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String content,
-            @RequestParam(required = false) List<Long> tagIds,
+            @RequestParam(required = false) List<String> tags,
             Pageable pageable) {
-        logger.info("Searching news with filters");
-        return ResponseEntity.ok(newsService.searchNews(authorName, title, content, tagIds, pageable));
+        logger.info("Searching news with filters - Author: {}, Title: {}, Content: {}, Tags: {}", authorName, title, content, tags);
+        Page<NewsDto> filteredNews = newsService.searchNews(authorName, title, content, tags, pageable);
+        return ResponseEntity.ok(filteredNews);
     }
 
     @Operation(summary = "Update a news entry by ID")
